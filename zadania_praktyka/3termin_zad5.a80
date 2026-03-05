@@ -1,0 +1,204 @@
+.model flat
+.686
+
+
+public _get_RPK
+.data
+tabela_dekodera db "BCDFGHJKMPQRTVWXY2346789"
+
+
+.code
+
+_shl_128 PROC
+push ebp
+mov ebp, esp
+push esi
+push edi
+push ebx
+
+mov esi, [ebp + 8]
+
+mov eax, [esi]
+mov ebx, [esi + 4]
+mov edi, [esi + 8]
+mov edx, [esi + 12]
+
+mov ecx, [ebp + 12]
+
+petla:
+
+shl eax, 1
+rcl ebx, 1
+rcl edi, 1
+rcl edx, 1
+loop petla
+
+mov[esi], eax
+mov[esi + 4], ebx
+mov[esi + 8], edi
+mov[esi + 12], edx
+
+pop ebx
+pop edi
+pop esi
+pop ebp
+ret
+
+_shl_128 ENDP
+
+
+__mul_24 PROC
+push ebp
+mov ebp, esp
+push esi
+mov eax, [ebp + 8]; adres zmiennej in
+mov esi, [ebp + 12]
+
+mov edx, [eax]
+mov[esi], edx
+
+mov edx, [eax + 4]
+mov[esi + 4], edx
+
+mov edx, [eax + 8]
+mov[esi + 8], edx
+
+mov edx, [eax + 12]
+mov[esi + 12], edx
+
+push 3;	*8
+push esi
+call _shl_128
+add esp, 8
+
+push[esi + 12]
+push[esi + 8]
+push[esi + 4]
+push[esi]
+
+push 1;	*16
+push esi
+call _shl_128
+add esp, 8
+
+pop eax
+add[esi], eax
+pop eax
+adc[esi + 4], eax
+pop eax
+adc[esi + 8], eax
+pop eax
+adc[esi + 12], eax
+
+
+
+pop esi
+pop ebp
+ret
+
+
+__mul_24 ENDP
+
+
+_get_RPK PROC
+
+push ebp
+mov ebp, esp
+push esi
+push ebx
+push edi
+
+mov esi, [ebp + 8]
+
+mov ecx, 29
+
+sub esp, 16; Rezerwujemy 16 bajtów na naszą liczbę 128 - bitową
+mov edi, esp
+; Wyzerowanie bufora na stosie(nasz akumulator)
+mov dword ptr[ebp - 16], 0
+mov dword ptr[ebp - 12], 0
+mov dword ptr[ebp - 8], 0
+mov dword ptr[ebp - 4], 0
+
+
+
+petla:
+
+; zaladowanie znaku do ebx
+movzx ebx, byte ptr[esi]
+cmp bl, '-'
+je skok
+
+push ecx
+mov ecx, 0
+znajdz_wartosc:
+cmp tabela_dekodera[ecx], bl
+je znaleziono
+inc ecx
+jmp znajdz_wartosc
+znaleziono :
+mov ebx, ecx
+pop ecx
+
+push ecx
+; mnozenie liczby przez 24
+push edi
+push edi
+
+call __mul_24
+add esp, 8
+pop ecx
+
+; dodanie nowego znaku do liczby
+add[edi], bl
+
+skok :
+inc esi
+loop petla
+
+mov eax, [edi + 5]
+bswap eax
+add esp, 16
+
+pop edi
+pop ebx
+pop esi
+
+
+pop ebp
+ret
+_get_RPK ENDP
+
+END
+
+
+
+
+
+//kod w C
+#include <stdio.h>
+
+// Deklaracja funkcji zewnętrznej w MASM
+// unsigned int, ponieważ RPK to 4 bajty (bity 8-5 z 15-bajtowej liczby)
+extern unsigned int get_RPK(char* PK);
+
+int main() {
+    // Przykładowy klucz produktu (25 znaków + 4 myślniki + null terminator)
+    // Zgodnie z zadaniem: FFFFF-GGGGG-HHHHH-JJJJJ-KKKKK
+    char* my_pk = "FFFFF-GGGGG-HHHHH-JJJJJ-KKKKK";
+
+    printf("Dekodowanie klucza: %s\n", my_pk);
+
+    // Wywołanie funkcji w ASM
+    unsigned int rpk = get_RPK(my_pk);
+
+    // Wyświetlenie wyniku w formacie szesnastkowym (typowe dla numerów seryjnych/kluczy)
+    printf("Odkodowane RPK: 0x%08X\n", rpk);
+
+    return 0;
+}
+
+
+
+
+

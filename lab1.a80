@@ -1,0 +1,150 @@
+.model flat
+extern _fopen: PROC, _fread : PROC, _fclose : PROC, _MessageBoxA@16 : PROC, _ExitProcess@4 : PROC
+rozmiar_pliku equ 48
+
+.code
+read2buf PROC
+	push offset mode
+	push offset fname
+	call _fopen
+	
+	cmp EAX, 0
+	je koniec
+
+	add esp,8
+	push eax
+	push eax ; uchwyt do pliku
+	push rozmiar_pliku ; liczba itemów
+	push 1 ; rozmiar itema
+	push offset bufor
+	call _fread
+	
+	add esp,16
+	call _fclose
+	add esp,4
+
+	ret
+	koniec:
+	    push 0                   
+    push OFFSET tytul_bledu 
+    push OFFSET blad_pliku  
+    push 0                   
+    call _MessageBoxA@16
+	push 1                      ; Zakończ z kodem błędu
+     call _ExitProcess@4
+read2buf ENDP
+
+funkcja PROC
+	;ESI - poczatek tekstu
+	;ECX - rozmiar
+	mov EBX, -1
+	;add esi, 3 ;POMIŃ BOM
+	poczatek:
+	add ebx, 1
+	;czy doszlismy do konca
+	cmp ebx, ecx
+	jz koniec 
+	ja blad
+
+
+	mov AL, [ESI][EBX]
+
+	cmp AL, 10000000b
+	jb jeden_bajt
+
+	cmp AL, 11000000b
+	jb blad
+
+	cmp AL, 11100000b
+	jb dwa_bajty
+
+	cmp AL, 11110000b
+	jb trzy_bajty
+
+	cmp AL, 11111000b
+	jb cztery_bajty
+
+	cmp AL, 11111100b
+	jb piec_bajtow
+
+	jmp szesc_bajtow
+
+	jeden_bajt:
+		jmp poczatek
+
+	dwa_bajty:
+		mov edx, 1
+		jmp petla
+
+	trzy_bajty:
+		mov edx, 2
+		jmp petla
+
+	cztery_bajty:
+		mov edx, 3
+		jmp petla
+
+	piec_bajtow:
+		mov edx, 4
+		jmp petla
+		;jmp blad
+
+	szesc_bajtow:
+		mov edx, 5
+		jmp petla
+		;jmp blad
+
+
+	petla:
+		add EBX, 1
+		cmp ebx, ecx
+		jge blad	;wyszlismy poza bufor
+
+		mov AL, [ESI+EBX]
+
+		cmp AL, 10000000b
+		jb blad
+
+		cmp AL, 11000000b
+		jge blad ;
+
+		dec edx
+		jz poczatek
+	jnz petla
+
+
+blad:
+    push 0                   ; uType = MB_OK
+    push OFFSET tytul_bledu  ; lpCaption
+    push OFFSET tresc_bledu  ; lpText
+    push 0                   ; hwnd = NULL
+    call _MessageBoxA@16
+    ret
+
+
+	koniec:
+		ret
+funkcja ENDP
+
+_main PROC
+	call read2buf ; odczyt danych z pliku do obszaru oznaczonego jako bufor
+	mov esi,offset bufor
+	mov ecx,rozmiar_pliku
+
+	call funkcja ;;; tutaj wpisać kod rozwiązania
+
+	push dword ptr 0 ; kod powrotu
+	call _ExitProcess@4 ; zakończenie programu
+_main ENDP
+
+.data
+	; bufor ze znakami wejściowymi w utf-8
+	bufor db rozmiar_pliku dup (?)
+	wynik dw rozmiar_pliku dup (0)
+	mode db "r",0
+	fname db "test4.txt", 0
+	tytul_bledu db 'UWAGA', 0
+	tresc_bledu db 'Niepoprawne kodowanie utf-8!', 0
+	blad_pliku db 'nie udalo sie otworzyc pliku!', 0
+
+END

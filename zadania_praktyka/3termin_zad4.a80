@@ -1,0 +1,162 @@
+#include <stdio.h>
+#include <string.h>
+
+// Definicja struktury pomocniczej, aby łatwo podejrzeć 128 bitów
+typedef struct {
+    unsigned int d[4]; // 4 * 32 bity = 128 bitów
+} uint128_t;
+
+// Deklaracja Twojej funkcji w MASM
+// Używamy void* dla uproszczenia, co jest zgodne z __m128* pod względem rozmiaru wskaźnika
+extern void _mul_24(uint128_t* in, uint128_t* out);
+
+void drukuj128(const char* label, uint128_t val) {
+    printf("%s: ", label);
+    // Wypisujemy od najstarszego bajtu (Big Endian dla czytelności hex)
+    for (int i = 3; i >= 0; i--) {
+        printf("%08X ", val.d[i]);
+    }
+    printf("\n");
+}
+
+int main() {
+    // 1. Inicjalizacja liczby wejściowej (np. mała wartość, by łatwo sprawdzić wynik)
+    // 128-bitowa liczba: 00000000 00000000 00000000 00000005
+    uint128_t liczba_in = { {6, 0, 0, 0} };
+    uint128_t liczba_out;
+
+    // Wyzerowanie wyniku przed wywołaniem
+    memset(&liczba_out, 0, sizeof(uint128_t));
+
+    printf("Przed mnozeniem:\n");
+    drukuj128("IN ", liczba_in);
+
+    // 2. Wywołanie funkcji w ASM
+    // 5 * 24 = 120 (w hex: 78)
+    _mul_24(&liczba_in, &liczba_out);
+
+    printf("\nPo mnozeniu (powinno byc 120 / 78h):\n");
+    drukuj128("OUT", liczba_out);
+
+    // Sprawdzenie czy liczba wejściowa nie uległa zmianie
+    drukuj128("IN (check)", liczba_in);
+
+    return 0;
+}
+
+
+
+;assembler
+.model flat
+.686
+
+
+public __mul_24
+public _shl_128
+.data
+
+
+.code
+
+
+_shl_128 PROC
+push ebp
+mov ebp, esp
+push esi
+push edi
+push ebx
+
+mov esi, [ebp + 8]
+
+mov eax, [esi]
+mov ebx, [esi + 4]
+mov edi, [esi + 8]
+mov edx, [esi + 12]
+
+mov ecx, [ebp + 12]
+
+petla:
+
+shl eax, 1
+rcl ebx, 1
+rcl edi, 1
+rcl edx, 1
+loop petla
+
+mov[esi], eax
+mov[esi + 4], ebx
+mov[esi + 8], edi
+mov[esi + 12], edx
+
+pop ebx
+pop edi
+pop esi
+pop ebp
+ret
+
+_shl_128 ENDP
+
+
+__mul_24 PROC
+push ebp
+mov ebp, esp
+push esi
+mov eax, [ebp + 8]; adres zmiennej in
+mov esi, [ebp + 12]
+
+mov edx, [eax]
+mov[esi], edx
+
+mov edx, [eax + 4]
+mov[esi + 4], edx
+
+mov edx, [eax + 8]
+mov[esi + 8], edx
+
+mov edx, [eax + 12]
+mov[esi + 12], edx
+
+push 3;	*8
+push esi
+call _shl_128
+add esp, 8
+
+push [esi+12]
+push [esi+8]
+push [esi+4]
+push [esi]
+
+push 1;	*16
+push esi
+call _shl_128
+add esp, 8
+
+pop eax
+add [esi], eax
+pop eax
+adc [esi+4], eax
+pop eax
+adc [esi+8], eax
+pop eax
+adc [esi+12], eax
+
+
+
+pop esi
+pop ebp
+ret
+
+
+__mul_24 ENDP
+END
+
+
+
+
+
+
+
+
+
+
+

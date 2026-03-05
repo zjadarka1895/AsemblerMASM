@@ -1,0 +1,89 @@
+#include <stdio.h>
+#include <string.h>
+
+// Deklaracja funkcji zewnętrznej (MASM)
+// W 32-bitowym asemblerze (model flat) domyślnie używamy konwencji __cdecl
+extern int numerPartycjiAktywnej(void* MBR);
+
+int main() {
+    // 1. Przygotowanie bufora udającego MBR (512 bajtów)
+    unsigned char fake_mbr[512];
+    memset(fake_mbr, 0, 512); // Wyzerowanie bufora
+
+    // 2. Symulacja tablicy partycji pod adresem 0x1BE (446 bajtów od początku)
+    // Każdy wpis ma 16 bajtów.
+    // Partycja 0: 0x1BE
+    // Partycja 1: 0x1CE
+    // Partycja 2: 0x1DE
+    // Partycja 3: 0x1EE
+
+    int numer_partycji = 3; // Partycje 0, 1, 2, 3
+    int offset_tablicy = 0x1BE;
+    int rozmiar_wpisu = 16;
+
+    fake_mbr[offset_tablicy + (numer_partycji * rozmiar_wpisu)] = 0x80;
+
+    // 3. Wywołanie Twojej funkcji w ASM
+    int aktywna = numerPartycjiAktywnej(fake_mbr);
+
+    // 4. Wyświetlenie wyniku
+    if (aktywna == -1) {
+        printf("Nie znaleziono aktywnej partycji.\n");
+    }
+    else {
+        printf("Numer pierwszej aktywnej partycji: %d\n", aktywna);
+    }
+
+    return 0;
+}
+
+//assembler
+.model flat
+.686
+
+public _numerPartycjiAktywnej
+.data
+
+.code
+
+
+_numerPartycjiAktywnej PROC
+	
+	push ebp
+	mov ebp, esp
+	push esi
+
+	mov esi, [ebp+8]
+	add esi, 1BEH
+
+	mov ecx, 4
+	xor eax, eax
+	petla:
+		add eax, 1
+		cmp byte ptr[esi], 80h
+		je znaleziono
+		add esi, 16
+	loop petla
+	mov eax, -1
+	
+	znaleziono:
+	
+	pop esi
+	pop ebp
+	ret
+
+
+
+_numerPartycjiAktywnej ENDP
+END
+
+
+
+
+
+
+
+
+
+
+

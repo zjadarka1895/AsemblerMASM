@@ -1,0 +1,92 @@
+#include <stdio.h>
+
+// Deklaracja funkcji zewnętrznej w MASM
+// unsigned int, bo indeksy nie są ujemne; short int to 16 bitów
+extern unsigned int find_in_last(void* last, short int znak);
+
+int main() {
+    // 1. Przygotowanie tablicy 16-bitowej (short)
+    // Musi kończyć się zerem (0), którego nie szukamy jako elementu danych
+    short tablica[] = { 10, 50, 123,  444, 8, 88, 2, 0 };
+
+    short szukany = 7;
+
+    // 2. Wywołanie funkcji
+    // Oczekiwany wynik dla '7' to 3 (pierwsze wystąpienie) 
+    // lub zależnie od interpretacji "find_in_last" - ostatnie. 
+    // Nazwa sugeruje szukanie w tablicy "last", ale treść mówi o znalezieniu indeksu.
+    unsigned int indeks = find_in_last(tablica, szukany);
+
+    // 3. Wyświetlenie wyniku
+    if (indeks == 0xFFFFFFFF) { // Umowna wartość dla "nie znaleziono"
+        printf("Nie znaleziono elementu w tablicy.\n");
+    }
+    else {
+        printf("Element %d znaleziono pod indeksem: %u\n", szukany, indeks);
+    }
+
+    return 0;
+}
+
+
+
+;assembler
+.model flat
+.686
+
+
+public _find_in_last
+.data
+
+
+.code
+_find_in_last PROC
+
+push ebp
+mov ebp, esp
+push esi
+
+mov esi, [ebp + 8];addr tablicy
+mov eax, [ebp + 12]; znak
+
+xor ecx, ecx
+mov edx, 0
+petla:
+	cmp [esi+ecx], dx
+	jne nie_koniec
+	mov eax, 0FFFFFFFFh
+	jmp koniec
+
+nie_koniec:
+	cmp [esi+ecx], ax
+	jne szukamy_dalej
+	mov eax, ecx
+	mov ecx, 2
+	div ecx
+	jmp koniec
+szukamy_dalej:
+	add ecx, 2
+	jmp petla
+	
+
+	
+koniec:
+	pop esi
+	pop ebp
+	ret
+
+
+_find_in_last ENDP
+
+END
+
+
+
+
+
+
+
+
+
+
+

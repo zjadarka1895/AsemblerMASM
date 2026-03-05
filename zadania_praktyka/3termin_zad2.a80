@@ -1,0 +1,112 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+// Deklaracja funkcji zewnętrznej w MASM
+// W trybie 32-bitowym domyślnie używana jest konwencja __cdecl
+extern void sortuj(long long liczby[], int n);
+
+// Funkcja pomocnicza do wypisywania tablicy
+void drukujTablice(long long liczby[], int n) {
+    for (int i = 0; i < n; i++) {
+        printf("%lld ", liczby[i]);
+    }
+    printf("\n");
+}
+
+int main() {
+    // 1. Definicja tablicy 64-bitowych liczb całkowitych ze znakiem
+    // Używamy różnych wartości, w tym ujemnych i dużych
+    long long tablica[] = {
+        5000000000LL,
+        -10LL,
+        8000000000LL,
+        25LL,
+        -5000000000LL,
+        -5000000001LL,
+        0LL,
+        7LL
+    };
+    int n = sizeof(tablica) / sizeof(tablica[0]);
+
+    printf("Przed sortowaniem:\n");
+    drukujTablice(tablica, n);
+
+    // 2. Wywołanie Twojego podprogramu w ASM
+    // Przekazujemy adres tablicy (4 bajty) i rozmiar (4 bajty)
+    sortuj(tablica, n);
+
+    printf("\nPo sortowaniu:\nn=%d\n",n);
+    
+    drukujTablice(tablica, n);
+
+    return 0;
+}
+
+//assembler
+.model flat
+.686
+
+public _sortuj
+.data
+
+.code
+
+
+_sortuj PROC
+
+push ebp
+mov ebp, esp
+push esi 
+push ebx
+
+
+mov ebx, [ebp+12]
+
+;sortowanie babelkowe
+petla_zew: ;n razy od poczatku
+mov esi, [ebp + 8]
+mov ecx, [ebp + 12]
+sub ecx, 1
+
+petla: ;od pierwszego do ostatniego
+	mov eax, [esi]
+	mov edx, [esi+4] ;starsza czesc 1 liczby
+	cmp edx, [esi+12] ;starsza czesc 2 liczby
+	jg wieksza_liczba ;ze znakiem
+	jl dalej
+	cmp eax, [esi+8] ;mlodsze czesci
+	ja wieksza_liczba
+	jmp dalej
+		wieksza_liczba:
+			xchg eax, [esi+8]
+			xchg eax, [esi]
+			xchg edx, [esi+12]
+			xchg edx, [esi+4]
+	dalej:
+		add esi, 8
+	loop petla
+
+dec ebx
+jz koniec
+jmp petla_zew
+
+koniec:
+	pop ebx
+	pop esi
+
+	pop ebp
+	ret
+
+_sortuj ENDP
+END
+
+
+
+
+
+
+
+
+
+
+
